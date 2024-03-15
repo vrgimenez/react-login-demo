@@ -1,11 +1,10 @@
-const express = require("express")
-const bcrypt = require("bcrypt")
-var cors = require('cors')
-const jwt = require("jsonwebtoken")
-var low = require("lowdb");
-var FileSync = require("lowdb/adapters/FileSync");
-var adapter = new FileSync("./database.json");
-var db = low(adapter);
+import express from "express"
+import bcrypt from "bcrypt"
+import cors from "cors"
+import jwt from "jsonwebtoken"
+import { JSONFilePreset } from "lowdb/node"
+const defaultData = { users: [] }
+const db = await JSONFilePreset("database.json", defaultData)
 
 // Initialize Express app
 const app = express()
@@ -29,10 +28,10 @@ app.post("/auth", (req, res) => {
     const { email, password } = req.body;
 
     // Look up the user entry in the database
-    const user = db.get("users").value().filter(user => email === user.email)
+    const user = db.data.users.filter((user) => email === user.email)
 
     // If found, compare the hashed passwords and generate the JWT token for the user
-    if (user.length === 1) {
+    if (Object.keys(user).length === 1) {
         bcrypt.compare(password, user[0].password, function (_err, result) {
             if (!result) {
                 return res.status(401).json({ message: "Invalid password" });
@@ -47,10 +46,10 @@ app.post("/auth", (req, res) => {
             }
         });
     // If no user is found, hash the given password and create a new entry in the auth db with the email and hashed password
-    } else if (user.length === 0) {
+    } else if (Object.keys(user).length === 0) {
         bcrypt.hash(password, 10, function (_err, hash) {
             console.log({ email, password: hash })
-            db.get("users").push({ email, password: hash }).write()
+            db.update(({ users }) => users.push({ email, password: hash }))
 
             let loginData = {
                 email,
@@ -93,7 +92,7 @@ app.post('/check-account', (req, res) => {
 
     console.log(req.body)
 
-    const user = db.get("users").value().filter(user => email === user.email)
+    const user = db.data.users.filter((user) => email === user.email)
 
     console.log(user)
     
@@ -102,4 +101,6 @@ app.post('/check-account', (req, res) => {
     })
 })
 
-app.listen(3080)
+app.listen(3080, () => {
+    console.log("listening on port 3080")
+})
